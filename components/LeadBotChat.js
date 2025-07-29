@@ -103,7 +103,8 @@ export default function LeadBotChat() {
   if (submitted) {
     return (
       <div style={container}>
-        <p>✅ Thanks! Your request has been sent. We'll contact you shortly.</p>
+        <p>{"✅ Thanks! Your request has been sent. We'll contact you shortly."}</p>
+
         {answers.time && (
           <p>
             📅 <strong>Selected Time:</strong> {formatDateTime(answers.time)}
