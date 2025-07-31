@@ -7,29 +7,28 @@ const leadSchema = z.object({
   name: z.string().min(2).max(50).trim(),
   phone: z.string().regex(/^\d{10}$/, "Phone must be a valid 10-digit U.S. phone number"),
   service: z.enum([
-  'plumbing',
-  'drain cleaning',
-  'emergency repair',
-  'water heater installation',
-  'water heater repair',
-  'leak detection',
-  'pipe repair',
-  'toilet repair',
-  'toilet installation',
-  'faucet installation',
-  'faucet repair',
-  'sewer line repair',
-  'sewer line replacement',
-  'sump pump installation',
-  'sump pump repair',
-  'gas line repair',
-  'clogged sink',
-  'garbage disposal repair',
-  'shower installation',
-  'shower repair',
-  'other'
-])
-,
+    'plumbing',
+    'drain cleaning',
+    'emergency repair',
+    'water heater installation',
+    'water heater repair',
+    'leak detection',
+    'pipe repair',
+    'toilet repair',
+    'toilet installation',
+    'faucet installation',
+    'faucet repair',
+    'sewer line repair',
+    'sewer line replacement',
+    'sump pump installation',
+    'sump pump repair',
+    'gas line repair',
+    'clogged sink',
+    'garbage disposal repair',
+    'shower installation',
+    'shower repair',
+    'other'
+  ]),
   time: z.string().datetime({ offset: true }) // ISO 8601 datetime
 });
 
@@ -48,7 +47,25 @@ export async function POST(request) {
       return new Response(JSON.stringify({ errors: formattedErrors }), { status: 400 });
     }
 
-    const { name, phone, service, time } = parsed.data;
+    let { name, phone, service, time } = parsed.data;
+
+    // ✅ Convert time to readable EST format (e.g., "Wednesday, July 30, 2025 at 10:17 AM")
+    try {
+      const utcDate = new Date(time);
+      const estDate = utcDate.toLocaleString("en-US", {
+        timeZone: "America/New_York",
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      time = estDate;
+    } catch (err) {
+      console.error("Failed to convert time to EST format:", err);
+    }
 
     // ✅ Save to Google Sheets
     try {
@@ -102,6 +119,7 @@ Preferred time: ${time}
     });
   }
 }
+
 
 
 
