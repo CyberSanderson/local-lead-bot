@@ -35,7 +35,6 @@ export default function LeadBotChat() {
   const [submitted, setSubmitted] = useState(false);
 
   const currentQuestion = questions[currentStep];
-  const isTimeStep = currentQuestion.key === "time";
 
   const handleNext = () => {
     if (!inputValue.trim()) return;
@@ -51,42 +50,46 @@ export default function LeadBotChat() {
     if (currentStep < questions.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      handleSubmit(updatedAnswers); // ✅ Prevent flicker by not calling setSubmitted yet
+      handleSubmit(updatedAnswers);
     }
   };
 
   const handleSubmit = async (data) => {
-    setSubmitted(true); // ✅ Prevents double render flicker
+    setSubmitted(true);
 
-    // Convert local datetime to ISO format
     if (data.time) {
       data.time = new Date(data.time).toISOString();
     }
+    
+    // --- KEY CHANGE 1: Get the userId from the installation snippet ---
+    const userId = window.localLeadBotConfig?.userId;
+    if (!userId) {
+        alert("Chatbot configuration error: Missing User ID.");
+        return;
+    }
+
+    // --- KEY CHANGE 2: Add the userId to the data sent to the server ---
+    const dataWithUser = { ...data, userId };
 
     try {
       const res = await fetch("/api/sendLeadEmail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(dataWithUser),
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        if (err.errors) {
-          alert(err.errors.map((e) => `${e.field}: ${e.message}`).join("\n"));
-        } else {
-          alert("Failed to send lead info. Please try again.");
-        }
+        alert("Failed to send lead info. Please try again.");
         return;
       }
 
-      setSubmitted(true);
     } catch (error) {
       console.error(error);
       alert("Error sending lead info.");
     }
   };
-
+  
+  // (No changes to the JSX or styling needed)
   const formatDateTime = (value) => {
     if (!value) return "Not provided";
     const date = new Date(value);
@@ -104,7 +107,6 @@ export default function LeadBotChat() {
     return (
       <div style={container}>
         <p>{"✅ Thanks! Your request has been sent. We'll contact you shortly."}</p>
-
         {answers.time && (
           <p>
             📅 <strong>Selected Time:</strong> {formatDateTime(answers.time)}
@@ -119,7 +121,6 @@ export default function LeadBotChat() {
       <h2 style={{ fontSize: "18px", marginBottom: "10px" }}>
         {currentQuestion.question}
       </h2>
-
       <input
         type={currentQuestion.type || "text"}
         value={inputValue}
@@ -129,58 +130,17 @@ export default function LeadBotChat() {
         placeholder={currentQuestion.placeholder}
         style={input}
       />
-
-      {currentQuestion.helper && (
-        <p style={helper}>{currentQuestion.helper}</p>
-      )}
-
-      <button
-        onClick={handleNext}
-        style={button}
-        disabled={!inputValue.trim()}
-      >
+      {currentQuestion.helper && <p style={helper}>{currentQuestion.helper}</p>}
+      <button onClick={handleNext} style={button} disabled={!inputValue.trim()}>
         Next
       </button>
     </div>
   );
 }
 
-const container = {
-  maxWidth: 400,
-  margin: "auto",
-  padding: 20,
-  fontFamily: "Arial, sans-serif",
-  border: "1px solid #ccc",
-  borderRadius: 10,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-};
-
-const input = {
-  width: "100%",
-  padding: "10px",
-  fontSize: "16px",
-  marginBottom: "8px",
-  borderRadius: "5px",
-  border: "1px solid #ccc",
-};
-
-const button = {
-  padding: "10px 20px",
-  fontSize: "16px",
-  backgroundColor: "#007bff",
-  color: "#fff",
-  border: "none",
-  borderRadius: "5px",
-  cursor: "pointer",
-};
-
-const helper = {
-  fontSize: "12px",
-  color: "#666",
-  marginBottom: "12px",
-};
-
-
-// Minor UI tweak to force redeploy
-//Reconnected Vercel to Git
+// (Styling objects remain the same)
+const container = { maxWidth: 400, margin: "auto", padding: 20, fontFamily: "Arial, sans-serif", border: "1px solid #ccc", borderRadius: 10, boxShadow: "0 2px 6px rgba(0,0,0,0.1)",};
+const input = { width: "100%", padding: "10px", fontSize: "16px", marginBottom: "8px", borderRadius: "5px", border: "1px solid #ccc",};
+const button = { padding: "10px 20px", fontSize: "16px", backgroundColor: "#007bff", color: "#fff", border: "none", borderRadius: "5px", cursor: "pointer",};
+const helper = { fontSize: "12px", color: "#666", marginBottom: "12px",};
 
