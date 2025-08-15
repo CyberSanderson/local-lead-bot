@@ -41,7 +41,7 @@ export async function POST(request) {
       line_items: [
         {
           // IMPORTANT: Replace with your actual Price ID from Stripe
-          price: 'YOUR_STRIPE_PRICE_ID_HERE', 
+          price: 'price_1RrUI10NYMA63YPu7qDtyl71', 
           quantity: 1,
         },
       ],
