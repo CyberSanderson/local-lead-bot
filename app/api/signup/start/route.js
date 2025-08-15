@@ -17,10 +17,10 @@ export async function POST(request) {
 
   // 1. Create a "pending" user in your Supabase database
   const { data: newUser, error } = await supabase
-    .from('users')
+    .from('profiles')
     .insert([
       { 
-        email: email, 
+        
         contact_name: contact_name, 
         business_name: business_name,
         notification_email: email // Set this as the default
