@@ -1,10 +1,18 @@
-import { supabase } from '@/lib/supabaseClient';
+// In /api/signup/start/route.js
+
+import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+
+// IMPORTANT: For server-side actions like creating a user,
+// you must use the Service Role Key for your Supabase client.
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(request) {
-  // Vercel Edge functions do not support the formData method, so we parse the URL-encoded string
   const body = await request.text();
   const params = new URLSearchParams(body);
   const email = params.get('email');
@@ -15,50 +23,52 @@ export async function POST(request) {
       return new Response(JSON.stringify({ error: "Missing required form fields." }), { status: 400 });
   }
 
-  // 1. Create a "pending" user in your Supabase database
-  const { data: newUser, error } = await supabase
-    .from('profiles')
-    .insert([
-      { 
-        
-        contact_name: contact_name, 
-        business_name: business_name,
-        notification_email: email // Set this as the default
-      },
-    ])
-    .select()
-    .single();
+  // STEP 1: Create the user in Supabase Auth. This saves the email.
+  const { data: { user: newAuthUser }, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    email: email,
+    email_confirm: true, // Automatically confirm the email
+  });
 
-  if (error) {
-    console.error("Supabase insert error:", error);
+  if (authError) {
+    console.error("Supabase auth error:", authError);
     return new Response(JSON.stringify({ error: "Could not create user account." }), { status: 500 });
   }
 
-  // 2. Create a Stripe Checkout Session linked to the new user's ID
+  // The trigger you created will have automatically made a new row in 'profiles'.
+  // STEP 2: Update that new profile row with the extra details.
+  const { error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .update({ 
+      contact_name: contact_name, 
+      business_name: business_name,
+      notification_email: email
+    })
+    .eq('id', newAuthUser.id); // Find the profile where the ID matches the new user's ID
+
+  if (profileError) {
+    console.error("Supabase profile update error:", profileError);
+    // You might want to delete the auth user here to clean up
+    return new Response(JSON.stringify({ error: "Could not update user profile." }), { status: 500 });
+  }
+
+  // STEP 3: Create the Stripe Checkout Session
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [
-        {
-          // IMPORTANT: Replace with your actual Price ID from Stripe
-          price: 'price_1RrUI10NYMA63YPu7qDtyl71', 
-          quantity: 1,
-        },
-      ],
+      line_items: [{
+        price: 'price_1RrUI10NYMA63YPu7qDtyl71', 
+        quantity: 1,
+      }],
       mode: 'payment',
-      success_url: `https://www.localleadbot.pro/thank-you.html`, // A page to show on success
-      cancel_url: `https://www.localleadbot.pro/signup.html`, // Return to signup on cancellation
+      success_url: `https://www.localleadbot.pro/thank-you.html`,
+      cancel_url: `https://www.localleadbot.pro/signup.html`,
       customer_email: email,
-      // **CRUCIAL**: This links the Stripe payment to the user in our database
-      client_reference_id: newUser.id, 
+      client_reference_id: newAuthUser.id, 
     });
 
-    // 3. Redirect the user to the Stripe payment page
     return new Response(null, {
-      status: 303, // Use 303 See Other for POST -> GET redirects
-      headers: {
-        Location: session.url,
-      },
+      status: 303,
+      headers: { Location: session.url },
     });
   } catch (err) {
     console.error("Stripe session error:", err);
