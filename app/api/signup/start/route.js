@@ -26,23 +26,22 @@ export async function POST(request) {
     return new Response(JSON.stringify({ error: "Could not create auth user." }), { status: 500 });
   }
 
-  // STEP 2: Directly insert into the profiles table with the new ID
+  // STEP 2: Update the auto-created profile with additional details
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
-    .insert({ 
-      id: newAuthUser.id, // We are providing the ID directly now
+    .update({ 
       contact_name: contact_name, 
       business_name: business_name,
       notification_email: email
-    });
+    })
+    .eq('id', newAuthUser.id); // Specify which profile to update
 
   if (profileError) {
-    console.error("Direct profile insert error:", profileError);
-    return new Response(JSON.stringify({ error: "Could not insert into profile table." }), { status: 500 });
+    console.error("Profile update error:", profileError);
+    return new Response(JSON.stringify({ error: "Could not update the profile table." }), { status: 500 });
   }
 
   // If we get here, the database part worked. Now try creating the Stripe session.
-  // ... (The Stripe part of your code remains the same) ...
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
